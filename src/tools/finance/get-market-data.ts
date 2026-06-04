@@ -59,21 +59,26 @@ import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './cry
 import { getCompanyNews } from './news.js';
 import { getInsiderTrades } from './insider_trades.js';
 
+function buildMarketDataTools(): StructuredToolInterface[] {
+  const tools: StructuredToolInterface[] = [yfGetQuote, yfGetAnalyst];
+  const hasFinancialDatasets = Boolean(process.env.FINANCIAL_DATASETS_API_KEY);
+  if (hasFinancialDatasets) {
+    tools.push(
+      getStockPrice,
+      getStockPrices,
+      getStockTickers,
+      getCryptoPriceSnapshot,
+      getCryptoPrices,
+      getCryptoTickers,
+      getCompanyNews,
+      getInsiderTrades,
+    );
+  }
+  return tools;
+}
+
 // All market data tools available for routing
-const MARKET_DATA_TOOLS: StructuredToolInterface[] = [
-  yfGetQuote,
-  yfGetAnalyst,
-  getStockPrice,
-  getStockPrices,
-  getStockTickers,
-  // Crypto Prices
-  getCryptoPriceSnapshot,
-  getCryptoPrices,
-  getCryptoTickers,
-  // News & Activity
-  getCompanyNews,
-  getInsiderTrades,
-];
+const MARKET_DATA_TOOLS: StructuredToolInterface[] = buildMarketDataTools();
 
 // Create a map for quick tool lookup by name
 const MARKET_DATA_TOOL_MAP = new Map(MARKET_DATA_TOOLS.map(t => [t.name, t]));
@@ -83,6 +88,10 @@ function buildRouterToolList(): string {
 }
 
 function buildRouterPrompt(): string {
+  const hasFinancialDatasets = Boolean(process.env.FINANCIAL_DATASETS_API_KEY);
+  const sourceNote = hasFinancialDatasets
+    ? 'Use Financial Datasets tools for structured prices/news/insider data; use yf_* for quote and analyst snapshots.'
+    : 'Financial Datasets tools are unavailable. Use yf_get_quote / yf_get_analyst only. If company news, insider trades, crypto history, or broad market headlines are requested, return no tool call and let the main agent use web_search.';
   return `You are a market data routing assistant.
 Current date: ${getCurrentDate()}
 
@@ -96,7 +105,7 @@ ${buildRouterToolList()}
 
 2. **Date Inference**: Use schema filters for ranges (last month, YTD, specific years).
 
-3. **Selection**: Prefer yf_get_quote / yf_get_analyst for snapshots; use get_stock_prices / get_crypto_prices for history; get_company_news for headlines; get_insider_trades for insider activity.
+3. **Selection**: ${sourceNote}
 
 4. **Efficiency**: Smallest date range that answers the question; same tool per ticker for comparisons.
 
@@ -138,7 +147,10 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
       // 2. Check for tool calls
       const toolCalls = aiMessage.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {
-        return formatToolResult({ error: 'No tools selected for query' }, []);
+        return formatToolResult({
+          error: 'No tools selected for query',
+          hint: 'Requested market data may require Financial Datasets API. Use web_search as fallback for news/insider/unsupported assets.',
+        }, []);
       }
 
       // 3. Execute tool calls in parallel

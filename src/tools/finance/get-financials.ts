@@ -61,17 +61,20 @@ import { getFinancialSegments } from './segments.js';
 import { getEarnings } from './earnings.js';
 
 function buildFinanceTools(): StructuredToolInterface[] {
-  const tools: StructuredToolInterface[] = [
-    ...(YFINANCE_TOOLS),
-    getIncomeStatements,
-    getBalanceSheets,
-    getCashFlowStatements,
-    getAllFinancialStatements,
-    getEarnings,
-    getKeyRatios,
-    getHistoricalKeyRatios,
-    getFinancialSegments,
-  ];
+  const tools: StructuredToolInterface[] = [...(YFINANCE_TOOLS)];
+  const hasFinancialDatasets = Boolean(process.env.FINANCIAL_DATASETS_API_KEY);
+  if (hasFinancialDatasets) {
+    tools.push(
+      getIncomeStatements,
+      getBalanceSheets,
+      getCashFlowStatements,
+      getAllFinancialStatements,
+      getEarnings,
+      getKeyRatios,
+      getHistoricalKeyRatios,
+      getFinancialSegments,
+    );
+  }
   if (process.env.FMP_API_KEY) {
     tools.push(...FMP_TOOLS);
   }
@@ -87,9 +90,14 @@ function buildRouterToolList(): string {
 
 function buildRouterPrompt(): string {
   const hasFmp = Boolean(process.env.FMP_API_KEY);
-  const fmpNote = hasFmp
-    ? 'When both are available, prefer fmp_* tools for fundamentals; use yf_* for quick quotes and analyst snapshots.'
-    : 'FMP tools are not configured — use yf_* and Financial Datasets tools below.';
+  const hasFinancialDatasets = Boolean(process.env.FINANCIAL_DATASETS_API_KEY);
+  const sourceNote = hasFinancialDatasets
+    ? (hasFmp
+      ? 'Both FMP and Financial Datasets are configured. Prefer fmp_* for fundamentals; use Financial Datasets tools when FMP does not cover the request; use yf_* for quick quote/analyst snapshots.'
+      : 'FMP tools are not configured — use Financial Datasets tools for fundamentals and yf_* for quick quote/analyst snapshots.')
+    : (hasFmp
+      ? 'Financial Datasets is not configured — rely on fmp_* for fundamentals and yf_* for quick quote/analyst snapshots.'
+      : 'Only yfinance tools are configured — provide the best available financial snapshot and clearly note any missing fundamentals.');
 
   return `You are a financial data routing assistant.
 Current date: ${getCurrentDate()}
@@ -104,7 +112,7 @@ ${buildRouterToolList()}
 
 2. **Date Inference**: Use schema-supported filters for date ranges (last year, last quarter, past 5 years, YTD).
 
-3. **Tool selection**: ${fmpNote}
+3. **Tool selection**: ${sourceNote}
    - Quotes / market snapshot → yf_get_quote or fmp_get_quote
    - Income / revenue → yf_get_financials or fmp_get_income_statement
    - Balance sheet → yf_get_balance_sheet or fmp_get_balance_sheet
@@ -149,7 +157,10 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
       // 2. Check for tool calls
       const toolCalls = aiMessage.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {
-        return formatToolResult({ error: 'No tools selected for query' }, []);
+        return formatToolResult({
+          error: 'No tools selected for query',
+          hint: 'No compatible finance source/tool available for this query. Add FMP/Financial Datasets credentials or narrow the request.',
+        }, []);
       }
 
       // 3. Execute tool calls in parallel

@@ -96,8 +96,9 @@ cp env.example .env
 # XAI_API_KEY=your-xai-api-key (optional)
 # OPENROUTER_API_KEY=your-openrouter-api-key (optional)
 
-# Institutional-grade market data for agents
-# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+# Fundamental/financial data providers
+# FMP_API_KEY=your-financial-modeling-prep-api-key
+# FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key (optional fallback)
 
 # (Optional) If using Ollama locally
 # OLLAMA_BASE_URL=http://127.0.0.1:11434

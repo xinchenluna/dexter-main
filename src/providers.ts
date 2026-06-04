@@ -1,3 +1,5 @@
+import { getSetting } from './utils/config.js';
+
 /**
  * Canonical provider registry — single source of truth for all provider metadata.
  * When adding a new provider, add a single entry here; all other modules derive from this.
@@ -88,7 +90,9 @@ export const PROVIDERS: ProviderDef[] = [
   displayName: 'Cerebras',
   modelPrefix: 'cerebras:',
   apiKeyEnvVar: 'CEREBRAS_API_KEY',
-  fastModel:'cerebras:qwen-3-235b-a22b-instruct-2507',
+  // Production tool-calling model (see inference-docs.cerebras.ai/models/overview).
+  // Preview alternative for agentic routing: cerebras:zai-glm-4.7 via ROUTER_MODEL.
+  fastModel: 'cerebras:gpt-oss-120b',
   contextWindow: 128_000,
   },
   {
@@ -99,17 +103,73 @@ export const PROVIDERS: ProviderDef[] = [
   },
 ];
 
-const defaultProvider = PROVIDERS.find((p) => p.id === 'openai')!;
+const defaultProvider = PROVIDERS.find((p) => p.id === 'deepseek')!;
+
+/** Legacy / API model ids without a provider prefix */
+const MODEL_PROVIDER_ALIASES: Record<string, string> = {
+  'deepseek-chat': 'deepseek',
+  'deepseek-reasoner': 'deepseek',
+};
 
 /**
  * Resolve the provider for a given model name based on its prefix.
- * Falls back to OpenAI when no prefix matches.
+ * Falls back to DeepSeek when no prefix matches (matches DEFAULT_PROVIDER).
  */
 export function resolveProvider(modelName: string): ProviderDef {
-  return (
-    PROVIDERS.find((p) => p.modelPrefix && modelName.startsWith(p.modelPrefix)) ??
-    defaultProvider
-  );
+  const aliasId = MODEL_PROVIDER_ALIASES[modelName];
+  if (aliasId) {
+    return getProviderById(aliasId) ?? defaultProvider;
+  }
+  const byPrefix = PROVIDERS.find((p) => p.modelPrefix && modelName.startsWith(p.modelPrefix));
+  if (byPrefix) {
+    return byPrefix;
+  }
+
+  const configuredId = getSetting('provider', defaultProvider.id);
+  return getProviderById(configuredId) ?? defaultProvider;
+}
+
+export function getFastModel(modelProvider: string, fallbackModel: string): string {
+  return getProviderById(modelProvider)?.fastModel ?? fallbackModel;
+}
+
+/**
+ * Default model for meta-tool LLM routing (tool selection only).
+ * Kept separate from the main agent model: DeepSeek is used for reasoning, while
+ * Cerebras/Groq handle fast native tool-calling for finance/market/filing routers.
+ */
+export const DEFAULT_ROUTER_MODEL = 'cerebras:gpt-oss-120b';
+
+function isApiKeyConfigured(envVar?: string): boolean {
+  if (!envVar) {
+    return false;
+  }
+  const value = process.env[envVar]?.trim();
+  return Boolean(value && !value.startsWith('your-'));
+}
+
+/**
+ * Model for nested meta-tools (get_financials, get_market_data, read_filings, etc.).
+ * Priority: ROUTER_MODEL env → Cerebras (if key) → Groq (if key) → main agent fast model.
+ */
+export function resolveRouterModel(agentModel: string): string {
+  const envModel = process.env.ROUTER_MODEL?.trim();
+  if (envModel) {
+    return envModel;
+  }
+
+  const cerebras = getProviderById('cerebras');
+  if (cerebras && isApiKeyConfigured(cerebras.apiKeyEnvVar)) {
+    return DEFAULT_ROUTER_MODEL;
+  }
+
+  const groq = getProviderById('groq');
+  if (groq && isApiKeyConfigured(groq.apiKeyEnvVar)) {
+    return groq.fastModel ?? 'groq:llama-3.3-70b-versatile';
+  }
+
+  const provider = resolveProvider(agentModel);
+  return getFastModel(provider.id, agentModel);
 }
 
 /**

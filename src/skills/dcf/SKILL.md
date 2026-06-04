@@ -22,42 +22,23 @@ DCF Analysis Progress:
 
 ## Step 1: Gather Financial Data
 
-Call the `get_financials` tool with these queries:
+Use **at most 2** `get_financials` calls and **1** `get_market_data` call (each triggers an LLM router). Batch related data into one natural-language query per call.
 
-### 1.1 Cash Flow History
-**Query:** `"[TICKER] annual cash flow statements for the last 5 years"`
+### 1.1 Financials (single call)
+**Query:** `"[TICKER] last 5 years annual cash flow, latest balance sheet, key ratios and company facts (sector, industry, market cap, debt_to_equity, revenue and FCF growth)"`
 
-**Extract:** `free_cash_flow`, `net_cash_flow_from_operations`, `capital_expenditure`
+**Extract from results:**
+- Cash flow: `free_cash_flow`, `net_cash_flow_from_operations`, `capital_expenditure` (if `free_cash_flow` missing: operations − capex)
+- Balance sheet: `total_debt`, `cash_and_equivalents`, `current_investments` (default 0), `outstanding_shares`
+- Metrics: `market_cap`, `enterprise_value`, `free_cash_flow_growth`, `revenue_growth`, `return_on_invested_capital`, `debt_to_equity`, `free_cash_flow_per_share`
+- Company facts: `sector`, `industry`
 
-**Fallback:** If `free_cash_flow` missing, calculate: `net_cash_flow_from_operations - capital_expenditure`
+**Use:** `sector` → WACC range from [sector-wacc.md](sector-wacc.md)
 
-### 1.2 Financial Metrics
-**Query:** `"[TICKER] financial metrics snapshot"`
-
-**Extract:** `market_cap`, `enterprise_value`, `free_cash_flow_growth`, `revenue_growth`, `return_on_invested_capital`, `debt_to_equity`, `free_cash_flow_per_share`
-
-### 1.3 Balance Sheet
-**Query:** `"[TICKER] latest balance sheet"`
-
-**Extract:** `total_debt`, `cash_and_equivalents`, `current_investments`, `outstanding_shares`
-
-**Fallback:** If `current_investments` missing, use 0
-
-### 1.4 Current Price
-Call the `get_market_data` tool:
-
-**Query:** `"[TICKER] price snapshot"`
+### 1.2 Current Price (single call)
+Call `get_market_data` with: `"[TICKER] price snapshot"`
 
 **Extract:** `price`
-
-### 1.5 Company Facts
-Call the `get_financials` tool:
-
-**Query:** `"[TICKER] company facts"`
-
-**Extract:** `sector`, `industry`, `market_cap`
-
-**Use:** Determine appropriate WACC range from [sector-wacc.md](sector-wacc.md)
 
 ## Step 2: Calculate FCF Growth Rate
 

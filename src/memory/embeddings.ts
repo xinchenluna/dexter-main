@@ -28,6 +28,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 function resolveProvider(preferred: EmbeddingProviderId): ResolvedProvider | null {
+  if (preferred === 'none') {
+    return null;
+  }
   if (preferred === 'openai' && process.env.OPENAI_API_KEY) {
     return 'openai';
   }
@@ -39,14 +42,15 @@ function resolveProvider(preferred: EmbeddingProviderId): ResolvedProvider | nul
   }
 
   if (preferred === 'auto') {
+    // Prefer local embeddings; avoid paid cloud providers unless explicitly configured.
+    if (process.env.OLLAMA_BASE_URL) {
+      return 'ollama';
+    }
     if (process.env.OPENAI_API_KEY) {
       return 'openai';
     }
     if (process.env.GOOGLE_API_KEY) {
       return 'gemini';
-    }
-    if (process.env.OLLAMA_BASE_URL) {
-      return 'ollama';
     }
   }
 

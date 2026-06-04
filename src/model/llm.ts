@@ -13,18 +13,12 @@ import { DEFAULT_SYSTEM_PROMPT } from '@/agent/prompts';
 import type { TokenUsage } from '@/agent/types';
 import { logger } from '@/utils';
 import { classifyError, isNonRetryableError } from '@/utils/errors';
-import { resolveProvider, getProviderById } from '@/providers';
+import { resolveProvider } from '@/providers';
+
+export { getFastModel, resolveRouterModel } from '@/providers';
 
 export const DEFAULT_PROVIDER = 'deepseek';
-export const DEFAULT_MODEL = 'deepseek-chat';
-
-/**
- * Gets the fast model variant for the given provider.
- * Falls back to the provided model if no fast variant is configured (e.g., Ollama).
- */
-export function getFastModel(modelProvider: string, fallbackModel: string): string {
-  return getProviderById(modelProvider)?.fastModel ?? fallbackModel;
-}
+export const DEFAULT_MODEL = 'deepseek-v4-flash';
 
 // Generic retry helper with exponential backoff
 async function withRetry<T>(fn: () => Promise<T>, provider: string, maxAttempts = 3): Promise<T> {

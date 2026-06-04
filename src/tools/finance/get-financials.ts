@@ -3,6 +3,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { AIMessage, ToolCall } from '@langchain/core/messages';
 import { z } from 'zod';
 import { callLlm } from '../../model/llm.js';
+import { resolveRouterModel } from '../../providers.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 import { withTimeout, SUB_TOOL_TIMEOUT_MS } from './utils.js';
@@ -140,13 +141,11 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
       // 1. Call LLM with finance tools bound (native tool calling)
       onProgress?.('Fetching...');
       const { response } = await callLlm(input.query, {
-        model:'cerebras:gpt-oss-120b',
+        model: resolveRouterModel(model),
         systemPrompt: buildRouterPrompt(),
         tools: FINANCE_TOOLS,
       });
       const aiMessage = response as AIMessage;
-      console.log('Router response tool_calls:', JSON.stringify(aiMessage.tool_calls));
-      console.log('Available tools:', FINANCE_TOOLS.map(t => t.name));
       // 2. Check for tool calls
       const toolCalls = aiMessage.tool_calls as ToolCall[];
       if (!toolCalls || toolCalls.length === 0) {

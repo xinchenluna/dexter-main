@@ -17,7 +17,7 @@ import { getSetting } from '../utils/config.js';
 
 const DEFAULT_CONFIG: MemoryRuntimeConfig = {
   enabled: true,
-  embeddingProvider: 'auto',
+  embeddingProvider: 'none',
   embeddingModel: undefined,
   maxSessionContextTokens: 2000,
   chunkTokens: 400,

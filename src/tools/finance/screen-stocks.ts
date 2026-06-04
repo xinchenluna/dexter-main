@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { z } from 'zod';
 import { callLlm } from '../../model/llm.js';
+import { resolveRouterModel } from '../../providers.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 import { api } from './api.js';
@@ -140,7 +141,7 @@ export function createScreenStocks(model: string): DynamicStructuredTool {
       let filters: ScreenerFilters;
       try {
         const { response } = await callLlm(input.query, {
-          model,
+          model: resolveRouterModel(model),
           systemPrompt: buildScreenerPrompt(metrics),
           outputSchema: ScreenerFilterSchema,
         });

@@ -3,6 +3,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { AIMessage, ToolCall } from '@langchain/core/messages';
 import { z } from 'zod';
 import { callLlm } from '../../model/llm.js';
+import { resolveRouterModel } from '../../providers.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 import { withTimeout, SUB_TOOL_TIMEOUT_MS } from './utils.js';
@@ -128,7 +129,7 @@ export function createGetMarketData(model: string): DynamicStructuredTool {
       // 1. Call LLM with market data tools bound (native tool calling)
       onProgress?.('Fetching market data...');
       const { response } = await callLlm(input.query, {
-        model:'cerebras:gpt-oss-120b',
+        model: resolveRouterModel(model),
         systemPrompt: buildRouterPrompt(),
         tools: MARKET_DATA_TOOLS,
       });

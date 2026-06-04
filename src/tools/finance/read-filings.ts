@@ -3,6 +3,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { AIMessage, ToolCall } from '@langchain/core/messages';
 import { z } from 'zod';
 import { callLlm } from '../../model/llm.js';
+import { resolveRouterModel } from '../../providers.js';
 import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 import { getFilings, get10KFilingItems, get10QFilingItems, get8KFilingItems, getFilingItemTypes, type FilingItemTypes } from './filings.js';
@@ -175,7 +176,7 @@ export function createReadFilings(model: string): DynamicStructuredTool {
       let filingPlan: FilingPlan;
       try {
         const { response: step1Response } = await callLlm(input.query, {
-          model,
+          model: resolveRouterModel(model),
           systemPrompt: buildPlanPrompt(),
           outputSchema: FilingPlanSchema,
         });
@@ -245,7 +246,7 @@ export function createReadFilings(model: string): DynamicStructuredTool {
 
       // Step 2: Select and read filing content with canonical item names
       const { response: step2Response } = await callLlm('Select and call the appropriate filing item tools.', {
-        model,
+        model: resolveRouterModel(model),
         systemPrompt: buildStep2Prompt(input.query, filingsResult.data, itemTypes),
         tools: STEP2_TOOLS,
       });

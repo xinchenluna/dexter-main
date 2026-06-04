@@ -47,11 +47,12 @@
 
 ## LLM Providers
 
-- Supported: OpenAI, Anthropic, Google, xAI (Grok), OpenRouter, Ollama (local), DeepSeek.
-- Defaults: `DEFAULT_PROVIDER=deepseek`, `DEFAULT_MODEL=deepseek-chat` in `src/model/llm.ts`.
+- Supported: OpenAI, Anthropic, Google, xAI (Grok), OpenRouter, Ollama (local), DeepSeek, Cerebras, Groq.
+- Defaults: `DEFAULT_PROVIDER=deepseek`, `DEFAULT_MODEL=deepseek-v4-flash` in `src/model/llm.ts`.
 - Provider detection is prefix- and settings-based; see `src/providers.ts`.
 - Fast models for compaction/memory flush: provider `fastModel` in `src/providers.ts`.
 - Users switch providers/models via `/model` in the CLI.
+- **Dual-model setup (recommended)**: Main agent on DeepSeek (reasoning); meta-tool routers use `resolveRouterModel()` — defaults to `cerebras:gpt-oss-120b` (Cerebras production; supports tool calling) when `CEREBRAS_API_KEY` is set. Override with `ROUTER_MODEL` (e.g. `cerebras:zai-glm-4.7` preview for agentic tasks). Web search uses Exa/Tavily/etc., not the chat model. Cerebras 429 = rate limit, not necessarily a bad model id — see [deprecations](https://inference-docs.cerebras.ai/support/deprecation) (avoid deprecated `qwen-3-235b-*`).
 
 ## Tools
 
@@ -88,7 +89,7 @@ Meta-tools `get_financials` and `get_market_data` have a hard per-query call cap
 
 ## Environment Variables
 
-- LLM: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`
+- LLM: `DEEPSEEK_API_KEY` (main agent), `CEREBRAS_API_KEY` or `GROQ_API_KEY` (meta-tool routers), `ROUTER_MODEL` (optional override), `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`
 - Ollama: `OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`)
 - Finance: `FINANCIAL_DATASETS_API_KEY`, `FMP_API_KEY` (optional, enables FMP sub-tools in routers)
 - Search: `EXASEARCH_API_KEY`, `PERPLEXITY_API_KEY`, `TAVILY_API_KEY`, `LANGSEARCH_API_KEY`

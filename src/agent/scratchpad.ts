@@ -48,7 +48,7 @@ export interface ToolUsageStatus {
 
 /** Default tool limit configuration */
 const DEFAULT_LIMIT_CONFIG: ToolLimitConfig = {
-  maxCallsPerTool: 3,
+  maxCallsPerTool: 5,
   similarityThreshold: 0.7,
 };
 

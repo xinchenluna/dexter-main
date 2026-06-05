@@ -20,6 +20,7 @@ import { runMemoryFlush, shouldRunMemoryFlush } from '../memory/flush.js';
 import { resolveProvider } from '../providers.js';
 import { resolveMaxIterations } from './runtime-profile.js';
 import { synthesizePartialAnswer } from './synthesize.js';
+import { enforceFinanceAnswerGuardrails } from './finance-guardrails.js';
 
 const MAX_OVERFLOW_RETRIES = 2;
 const OVERFLOW_KEEP_ROUNDS = 3;
@@ -257,6 +258,7 @@ export class Agent {
         // Keep default fallback notice
       }
     }
+    answer = enforceFinanceAnswerGuardrails(answer, ctx.scratchpad.getToolCallRecords());
 
     yield {
       type: 'done',
@@ -435,9 +437,13 @@ export class Agent {
     ctx: RunContext,
   ): AsyncGenerator<AgentEvent, void> {
     const totalTime = Date.now() - ctx.startTime;
+    const guardedAnswer = enforceFinanceAnswerGuardrails(
+      responseText,
+      ctx.scratchpad.getToolCallRecords(),
+    );
     yield {
       type: 'done',
-      answer: responseText,
+      answer: guardedAnswer,
       toolCalls: ctx.scratchpad.getToolCallRecords(),
       iterations: ctx.iteration,
       totalTime,

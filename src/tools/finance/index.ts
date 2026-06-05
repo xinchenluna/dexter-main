@@ -6,6 +6,8 @@ export { getStockPrice, getStockPrices, getStockTickers, STOCK_PRICE_DESCRIPTION
 export { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
 export { getInsiderTrades } from './insider_trades.js';
 export { getEarnings } from './earnings.js';
+export { polygonGetTickerReference, polygonGetFinancials } from './polygon.js';
+export { secEdgarGetCompanyFacts } from './sec-edgar.js';
 export { createGetFinancials } from './get-financials.js';
 export { createGetMarketData } from './get-market-data.js';
 export { createReadFilings } from './read-filings.js';

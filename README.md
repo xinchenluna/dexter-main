@@ -99,6 +99,8 @@ cp env.example .env
 # Fundamental/financial data providers
 # FMP_API_KEY=your-financial-modeling-prep-api-key
 # FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key (optional fallback)
+# POLYGON_API_KEY=your-polygon-api-key (optional; standardized reference/valuation fields)
+# SEC_EDGAR_USER_AGENT=Your App Name contact@email.com (optional but recommended by SEC)
 
 # (Optional) If using Ollama locally
 # OLLAMA_BASE_URL=http://127.0.0.1:11434

@@ -54,26 +54,12 @@ function formatSubToolName(name: string): string {
 }
 
 // Import market data tools directly (avoid circular deps with index.ts)
-import { getStockPrice, getStockPrices, getStockTickers } from './stock-price.js';
-import { getCryptoPriceSnapshot, getCryptoPrices, getCryptoTickers } from './crypto.js';
-import { getCompanyNews } from './news.js';
-import { getInsiderTrades } from './insider_trades.js';
 
 function buildMarketDataTools(): StructuredToolInterface[] {
-  const tools: StructuredToolInterface[] = [yfGetQuote, yfGetAnalyst];
-  const hasFinancialDatasets = Boolean(process.env.FINANCIAL_DATASETS_API_KEY);
-  if (hasFinancialDatasets) {
-    tools.push(
-      getStockPrice,
-      getStockPrices,
-      getStockTickers,
-      getCryptoPriceSnapshot,
-      getCryptoPrices,
-      getCryptoTickers,
-      getCompanyNews,
-      getInsiderTrades,
-    );
-  }
+  const tools: StructuredToolInterface[] = [
+    yfGetQuote,
+    yfGetAnalyst,
+  ];
   return tools;
 }
 
@@ -88,10 +74,7 @@ function buildRouterToolList(): string {
 }
 
 function buildRouterPrompt(): string {
-  const hasFinancialDatasets = Boolean(process.env.FINANCIAL_DATASETS_API_KEY);
-  const sourceNote = hasFinancialDatasets
-    ? 'Use Financial Datasets tools for structured prices/news/insider data; use yf_* for quote and analyst snapshots.'
-    : 'Financial Datasets tools are unavailable. Use yf_get_quote / yf_get_analyst only. If company news, insider trades, crypto history, or broad market headlines are requested, return no tool call and let the main agent use web_search.';
+  const sourceNote = 'Use yf_get_quote and yf_get_analyst for requested tickers. If company news, insider trades, crypto history, or broad market headlines are requested, still return quote/analyst data first and let the main agent use web_search for the rest.';
   return `You are a market data routing assistant.
 Current date: ${getCurrentDate()}
 
@@ -108,6 +91,7 @@ ${buildRouterToolList()}
 3. **Selection**: ${sourceNote}
 
 4. **Efficiency**: Smallest date range that answers the question; same tool per ticker for comparisons.
+5. **Fallback behavior**: For mixed requests (e.g., "price + news"), ALWAYS call quote/analyst tools for the tickers instead of returning no tool call.
 
 Call the appropriate tool(s) now.`;
 }

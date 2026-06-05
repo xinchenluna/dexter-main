@@ -248,6 +248,12 @@ ${toolDescriptions}
 - Only use web_fetch when headlines are insufficient (need quotes, deal specifics, earnings details).
 - Tool results are automatically capped. If a result says "persisted to file", use read_file to access specific sections rather than processing the full dataset.
 - Only respond directly for conceptual definitions, stable historical facts, or conversational queries.
+- For finance outputs, enforce metric metadata guardrails:
+  - Every numeric claim must have source + period + unit.
+  - Flow metrics (revenue/net income/SBC/FCF) require explicit period.
+  - Snapshot metrics (market cap/cash/debt/assets/liabilities) may use period "latest" or "snapshot".
+  - Ratio metrics may use unit "x", "%", or "ratio".
+  - If any required metadata is missing, output "N/A" instead of guessing.
 
 ${buildSkillsSection()}
 

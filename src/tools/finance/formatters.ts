@@ -277,6 +277,9 @@ export const FINANCIAL_FORMATTERS: Record<string, (data: unknown, args?: Rec) =>
   get_historical_key_ratios: formatHistoricalKeyRatios,
   get_earnings: formatEarnings,
   get_financial_segments: formatFinancialSegments,
+  polygon_get_ticker_reference: (data) => JSON.stringify(data),
+  polygon_get_financials: (data) => JSON.stringify(data),
+  sec_edgar_get_company_facts: (data) => JSON.stringify(data),
 };
 
 export const MARKET_DATA_FORMATTERS: Record<string, (data: unknown, args?: Rec) => string> = {

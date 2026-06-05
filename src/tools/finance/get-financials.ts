@@ -8,8 +8,11 @@ import { formatToolResult } from '../types.js';
 import { getCurrentDate } from '../../agent/prompts.js';
 import { withTimeout, SUB_TOOL_TIMEOUT_MS } from './utils.js';
 import { FINANCIAL_FORMATTERS } from './formatters.js';
+import { buildMetricGuardrails } from './metric-guardrails.js';
 import { YFINANCE_TOOLS } from './yfinance-tool.js';
 import { FMP_TOOLS } from './fmp.js';
+import { POLYGON_TOOLS } from './polygon.js';
+import { secEdgarGetCompanyFacts } from './sec-edgar.js';
 
 
 /**
@@ -55,29 +58,16 @@ function formatSubToolName(name: string): string {
 }
 
 // Import all finance tools directly (avoid circular deps with index.ts)
-import { getIncomeStatements, getBalanceSheets, getCashFlowStatements, getAllFinancialStatements } from './fundamentals.js';
-import { getKeyRatios, getHistoricalKeyRatios } from './key-ratios.js';
-import { getFinancialSegments } from './segments.js';
-import { getEarnings } from './earnings.js';
 
 function buildFinanceTools(): StructuredToolInterface[] {
   const tools: StructuredToolInterface[] = [...(YFINANCE_TOOLS)];
-  const hasFinancialDatasets = Boolean(process.env.FINANCIAL_DATASETS_API_KEY);
-  if (hasFinancialDatasets) {
-    tools.push(
-      getIncomeStatements,
-      getBalanceSheets,
-      getCashFlowStatements,
-      getAllFinancialStatements,
-      getEarnings,
-      getKeyRatios,
-      getHistoricalKeyRatios,
-      getFinancialSegments,
-    );
-  }
   if (process.env.FMP_API_KEY) {
     tools.push(...FMP_TOOLS);
   }
+  if (process.env.POLYGON_API_KEY) {
+    tools.push(...POLYGON_TOOLS);
+  }
+  tools.push(secEdgarGetCompanyFacts);
   return tools;
 }
 
@@ -90,14 +80,13 @@ function buildRouterToolList(): string {
 
 function buildRouterPrompt(): string {
   const hasFmp = Boolean(process.env.FMP_API_KEY);
-  const hasFinancialDatasets = Boolean(process.env.FINANCIAL_DATASETS_API_KEY);
-  const sourceNote = hasFinancialDatasets
-    ? (hasFmp
-      ? 'Both FMP and Financial Datasets are configured. Prefer fmp_* for fundamentals; use Financial Datasets tools when FMP does not cover the request; use yf_* for quick quote/analyst snapshots.'
-      : 'FMP tools are not configured — use Financial Datasets tools for fundamentals and yf_* for quick quote/analyst snapshots.')
-    : (hasFmp
-      ? 'Financial Datasets is not configured — rely on fmp_* for fundamentals and yf_* for quick quote/analyst snapshots.'
-      : 'Only yfinance tools are configured — provide the best available financial snapshot and clearly note any missing fundamentals.');
+  const hasPolygon = Boolean(process.env.POLYGON_API_KEY);
+  const sourceNote = hasFmp
+    ? 'Use fmp_* for fundamentals and yf_* for quick quote/analyst snapshots.'
+    : 'FMP is unavailable. Use yf_* for broad fundamentals and sec_edgar_get_company_facts for high-trust accounting tags.';
+  const polygonNote = hasPolygon
+    ? 'Use polygon_get_ticker_reference / polygon_get_financials for standardized reference/valuation fields. Keep Polygon calls minimal (rate limits).'
+    : 'Polygon tools are unavailable unless POLYGON_API_KEY is configured.';
 
   return `You are a financial data routing assistant.
 Current date: ${getCurrentDate()}
@@ -117,10 +106,18 @@ ${buildRouterToolList()}
    - Income / revenue → yf_get_financials or fmp_get_income_statement
    - Balance sheet → yf_get_balance_sheet or fmp_get_balance_sheet
    - Cash flow / FCF → yf_get_cash_flow or fmp_get_cash_flow
-   - Segments → get_financial_segments
-   - Historical ratios → get_key_ratios / get_historical_key_ratios
+   - Standardized company reference / valuation fields → polygon_get_ticker_reference / polygon_get_financials
+   - High-trust SEC accounting tags (e.g., SBC) → sec_edgar_get_company_facts
+   - ${polygonNote}
 
 4. **Efficiency**: Use the smallest limit that answers the question; for comparisons, call the same tool per ticker.
+
+5. **Metric metadata guardrails**:
+   - Every numeric claim in your final analysis must include source + period + unit metadata.
+   - For flow metrics (revenue, net income, SBC, FCF): period is REQUIRED (e.g., FY2025, Q1 2026).
+   - For stock/snapshot metrics (market cap, cash, debt, total assets/liabilities): period may be "latest" or "snapshot".
+   - For ratio/multiple metrics: unit may be "x", "%", or "ratio" (period can be "latest"/"snapshot" when appropriate).
+   - If metadata is missing, explicitly mark the metric as unavailable.
 
 Call the appropriate tool(s) now.`;
 }
@@ -204,6 +201,7 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
 
       // Build combined data structure
       const combinedData: Record<string, unknown> = {};
+      const metricGuardrails: Record<string, unknown> = {};
 
       for (const result of successfulResults) {
         const ticker = (result.args as Record<string, unknown>).ticker as string | undefined;
@@ -212,6 +210,19 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
         combinedData[key] = formatter
           ? formatter(result.data, result.args as Record<string, unknown>)
           : result.data;
+
+        if (result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
+          const rows = buildMetricGuardrails({
+            tool: result.tool,
+            ticker,
+            sourceUrl: result.sourceUrls[0],
+            metrics: result.data as Record<string, unknown>,
+            period: (result.args as Record<string, unknown>).period as string | undefined,
+          });
+          if (rows.length > 0) {
+            metricGuardrails[key] = rows;
+          }
+        }
       }
 
       // Add errors if any
@@ -221,6 +232,9 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
           args: r.args,
           error: r.error,
         }));
+      }
+      if (Object.keys(metricGuardrails).length > 0) {
+        combinedData._metricGuardrails = metricGuardrails;
       }
 
       return formatToolResult(combinedData, allUrls);
